@@ -1,0 +1,595 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" media="(prefers-color-scheme: light)" content="#fbf1c7">
+<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#282828">
+<title>Image Bridge</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2383a598' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='3' width='18' height='18' rx='3'/%3E%3Ccircle cx='9' cy='9' r='2'/%3E%3Cpath d='m21 15-5-5L5 21'/%3E%3C/svg%3E">
+<script>
+  // Apply the stored theme before first paint. Same localStorage key/values as trpc-portfolio ("theme": light|dark).
+  (() => {
+    try {
+      const stored = localStorage.getItem('theme');
+      const dark = stored ? stored === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches;
+      document.documentElement.classList.toggle('dark', dark);
+    } catch {}
+  })();
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&family=Fira+Code:wght@400;500&display=swap">
+<style>
+  /* ---- Tokens: mirrored from trpc-portfolio/packages/client/src/index.css (RGB triplets) ---- */
+  :root {
+    --background: 252 252 252;
+    --foreground: 15 23 42;
+    --muted: 241 245 249;
+    --muted-foreground: 100 116 139;
+    --code-background: 241 245 249;
+    --accent: 37 99 235;        /* portfolio defines no accent; slate-blue for light */
+    --destructive: 220 38 38;
+    --radius: 0.5rem;           /* rounded-lg, the portfolio's dominant radius */
+    --dur: 300ms;
+    color-scheme: light;
+  }
+  .dark {
+    --background: 40 40 40;     /* Gruvbox */
+    --foreground: 235 219 178;
+    --muted: 60 56 54;
+    --muted-foreground: 168 153 132;
+    --code-background: 29 32 33;
+    --accent: 131 165 152;      /* Gruvbox blue */
+    --destructive: 251 73 52;   /* Gruvbox red */
+    color-scheme: dark;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; }
+  html {
+    font-family: "EB Garamond", serif;
+    background: rgb(var(--background));
+    color: rgb(var(--foreground));
+    transition: background-color var(--dur), color var(--dur);
+    scrollbar-width: thin;
+    scrollbar-color: rgb(var(--muted-foreground) / 0.3) transparent;
+  }
+  body { margin: 0; font-size: 17px; line-height: 1.5; min-height: 100dvh; }
+  h1, h2, h3 { font-family: "EB Garamond", serif; font-weight: 500; letter-spacing: -0.01em; margin: 0; }
+  code, .mono { font-family: "Fira Code", monospace; font-size: 0.8em; }
+  button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; }
+  :focus-visible { outline: 2px solid rgb(var(--accent)); outline-offset: 2px; }
+  ::selection { background: rgb(var(--accent) / 0.25); }
+  ::-webkit-scrollbar { width: 8px; height: 8px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: rgb(var(--muted-foreground) / 0.3); border-radius: 4px; border: 2px solid transparent; background-clip: padding-box; }
+  ::-webkit-scrollbar-thumb:hover { background: rgb(var(--muted-foreground) / 0.5); }
+
+  /* ---- Layout ---- */
+  header {
+    position: sticky; top: 0; z-index: 10; height: 4rem;
+    display: flex; align-items: center; gap: 1rem; padding: 0 1.25rem;
+    background: rgb(var(--background) / 0.8); backdrop-filter: blur(6px);
+    border-bottom: 1px solid rgb(var(--muted-foreground) / 0.2);
+    transition: background-color var(--dur), border-color var(--dur);
+  }
+  header h1 { font-size: 1.5rem; }
+  header .count { color: rgb(var(--muted-foreground)); font-size: 0.95rem; }
+  header .spacer { flex: 1; }
+  .search {
+    display: flex; align-items: center; gap: 0.5rem; padding: 0.4rem 0.75rem;
+    background: rgb(var(--muted) / 0.5); border-radius: var(--radius); color: rgb(var(--muted-foreground));
+    transition: background-color var(--dur);
+  }
+  .search:focus-within { background: rgb(var(--muted)); color: rgb(var(--foreground)); }
+  .search input { font: inherit; font-size: 1rem; border: 0; background: none; color: inherit; width: 14rem; outline: none; }
+  .search input::placeholder { color: rgb(var(--muted-foreground)); }
+
+  main { max-width: 72rem; margin: 0 auto; padding: 1.5rem 1.25rem 6rem; }
+  .lede { color: rgb(var(--muted-foreground)); margin: 0 0 1.25rem; font-size: 1.05rem; }
+
+  #drop {
+    display: grid; place-items: center; gap: 0.25rem; text-align: center;
+    padding: 2.25rem 1rem; border-radius: var(--radius); cursor: pointer;
+    border: 1.5px dashed rgb(var(--muted-foreground) / 0.4);
+    background: rgb(var(--muted) / 0.35);
+    transition: background-color var(--dur), border-color var(--dur);
+  }
+  #drop:hover, #drop:focus-visible { background: rgb(var(--muted) / 0.6); }
+  #drop.over { border-color: rgb(var(--accent)); background: rgb(var(--accent) / 0.08); border-style: solid; }
+  #drop svg { width: 1.75rem; height: 1.75rem; color: rgb(var(--muted-foreground)); margin-bottom: 0.25rem; }
+  #drop strong { font-weight: 500; font-size: 1.15rem; }
+  #drop span { color: rgb(var(--muted-foreground)); }
+  kbd {
+    font-family: "Fira Code", monospace; font-size: 0.75em; padding: 0.05em 0.4em;
+    border: 1px solid rgb(var(--muted-foreground) / 0.4); border-bottom-width: 2px; border-radius: 4px;
+    background: rgb(var(--code-background));
+  }
+  #status { min-height: 1.6rem; margin: 0.75rem 0.25rem 1.25rem; color: rgb(var(--muted-foreground)); }
+  #status.err { color: rgb(var(--destructive)); }
+  #status code { user-select: all; }
+
+  /* ---- Gallery ---- */
+  #grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(11.5rem, 1fr)); gap: 1rem; }
+  .card {
+    display: flex; flex-direction: column; overflow: hidden; border-radius: var(--radius);
+    background: rgb(var(--background)); border: 1px solid rgb(var(--muted-foreground) / 0.2);
+    transition: border-color var(--dur), box-shadow var(--dur), transform var(--dur);
+  }
+  .card:hover { border-color: rgb(var(--muted-foreground) / 0.5); box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1); }
+  .card.fresh { border-color: rgb(var(--accent)); box-shadow: 0 0 0 3px rgb(var(--accent) / 0.2); }
+  .card .thumb {
+    /* position + absolute img: a tall image must not grow the box past its 4:3 aspect ratio */
+    position: relative; display: block; width: 100%; aspect-ratio: 4 / 3; padding: 0; cursor: zoom-in; overflow: hidden;
+    background: rgb(var(--code-background));
+    background-image: repeating-conic-gradient(rgb(var(--muted-foreground) / 0.12) 0 25%, transparent 0 50%);
+    background-size: 16px 16px;
+  }
+  .card .thumb img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; display: block; }
+  .card .meta { padding: 0.6rem 0.75rem 0.7rem; display: grid; gap: 0.35rem; }
+  .card .name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 500; }
+  .card .sub { color: rgb(var(--muted-foreground)); font-size: 0.85rem; }
+  .card .row { display: flex; gap: 0.4rem; margin-top: 0.15rem; }
+
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 0.4rem; text-decoration: none;
+    padding: 0.4rem 0.75rem; border-radius: var(--radius); font-size: 0.95rem; line-height: 1.2;
+    background: rgb(var(--muted) / 0.6); transition: background-color var(--dur), color var(--dur), opacity var(--dur);
+  }
+  .btn:hover { background: rgb(var(--muted)); }
+  .btn.primary { background: rgb(var(--foreground)); color: rgb(var(--background)); }
+  .btn.primary:hover { opacity: 0.85; }
+  .btn.danger { color: rgb(var(--destructive)); }
+  .btn.danger:hover { background: rgb(var(--destructive) / 0.12); }
+  .btn.icon { padding: 0.45rem; }
+  .btn svg { width: 1.05rem; height: 1.05rem; flex: none; }
+  .btn.copy .mono { font-size: 0.78rem; }
+  .btn[disabled] { opacity: 0.4; cursor: default; }
+
+  .empty { grid-column: 1 / -1; text-align: center; color: rgb(var(--muted-foreground)); padding: 3rem 1rem; font-style: italic; }
+
+  /* ---- Theme toggle FAB (portfolio: fixed bottom-4 right-4 rounded-full p-3 shadow-lg) ---- */
+  #theme {
+    position: fixed; right: 1rem; bottom: 1rem; z-index: 20; padding: 0.75rem; border-radius: 9999px;
+    background: rgb(var(--muted)); color: rgb(var(--foreground));
+    box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+    transition: background-color var(--dur), box-shadow var(--dur);
+  }
+  #theme:hover { box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.15), 0 8px 10px -6px rgb(0 0 0 / 0.1); }
+  #theme svg { width: 1.25rem; height: 1.25rem; display: block; }
+  .dark #theme .sun, :root:not(.dark) #theme .moon { display: none; }
+
+  /* ---- Drawer: a <dialog> sheet sliding in from the right ---- */
+  #drawer {
+    --w: min(38rem, 92vw);
+    position: fixed; inset: 0 0 0 auto; margin: 0; width: var(--w); max-width: none; height: 100dvh; max-height: none;
+    padding: 0; border: 0; border-left: 1px solid rgb(var(--muted-foreground) / 0.2);
+    background: rgb(var(--background)); color: rgb(var(--foreground));
+    box-shadow: -20px 0 40px -20px rgb(0 0 0 / 0.35);
+    display: none; flex-direction: column;
+    opacity: 0; transform: translateX(100%);
+    transition-property: opacity, transform, display, overlay;
+    transition-duration: var(--dur);
+    transition-timing-function: cubic-bezier(0.2, 0.8, 0.2, 1);
+    transition-behavior: allow-discrete;
+  }
+  #drawer::backdrop {
+    /* portfolio overlay: bg-background/80 backdrop-blur-sm, 300ms fade */
+    background: rgb(var(--background) / 0);
+    backdrop-filter: blur(0);
+    transition-property: background-color, backdrop-filter, display, overlay;
+    transition-duration: var(--dur);
+    transition-behavior: allow-discrete;
+  }
+  #drawer[open] { display: flex; }
+  :is(#drawer[open]):where(:not([data-closing])) {
+    opacity: 1; transform: translateX(0);
+    @starting-style { opacity: 0; transform: translateX(100%); }
+    &::backdrop {
+      background: rgb(var(--background) / 0.8); backdrop-filter: blur(4px);
+      @starting-style { background: rgb(var(--background) / 0); backdrop-filter: blur(0); }
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    #drawer { transform: none; transition-duration: 100ms; }
+    :is(#drawer[open]):where(:not([data-closing])) { @starting-style { transform: none; } }
+    #drawer::backdrop { transition-duration: 100ms; }
+  }
+
+  .drawer-head {
+    display: flex; align-items: center; gap: 0.5rem; height: 4rem; padding: 0 1rem 0 1.25rem; flex: none;
+    border-bottom: 1px solid rgb(var(--muted-foreground) / 0.2);
+  }
+  .drawer-head h2 { font-size: 1.25rem; flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .drawer-head .pos { color: rgb(var(--muted-foreground)); font-size: 0.9rem; font-variant-numeric: tabular-nums; }
+  .drawer-body { flex: 1; overflow-y: auto; display: flex; flex-direction: column; }
+  .stage {
+    flex: none; display: grid; place-items: center; min-height: 14rem; max-height: 60dvh; padding: 1rem;
+    background: rgb(var(--code-background));
+    background-image: repeating-conic-gradient(rgb(var(--muted-foreground) / 0.12) 0 25%, transparent 0 50%);
+    background-size: 16px 16px;
+  }
+  .stage img { max-width: 100%; max-height: calc(60dvh - 2rem); object-fit: contain; border-radius: 4px; }
+  .stage img.natural { image-rendering: pixelated; width: 8rem; height: auto; } /* icons/pixels: show enlarged */
+  .stage button { position: absolute; }
+  .details { padding: 1.25rem; display: grid; gap: 1rem; }
+  dl { display: grid; grid-template-columns: max-content 1fr; gap: 0.4rem 1rem; margin: 0; font-size: 0.98rem; }
+  dt { color: rgb(var(--muted-foreground)); }
+  dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
+  dd code { padding: 0.1em 0.45em; border-radius: 4px; background: rgb(var(--code-background)); user-select: all; }
+  .actions { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+  .confirm { display: none; align-items: center; gap: 0.5rem; color: rgb(var(--muted-foreground)); }
+  .details[data-confirm] .confirm { display: flex; }
+  .details[data-confirm] .del { display: none; }
+  .drawer-foot {
+    flex: none; display: flex; justify-content: space-between; gap: 0.5rem; padding: 0.75rem 1.25rem;
+    border-top: 1px solid rgb(var(--muted-foreground) / 0.2); color: rgb(var(--muted-foreground)); font-size: 0.9rem;
+  }
+
+  @media (max-width: 640px) {
+    header { gap: 0.6rem; padding: 0 0.9rem; }
+    .search input { width: 7rem; }
+    header .count { display: none; }
+    main { padding: 1rem 1rem 6rem; }
+    #grid { grid-template-columns: repeat(auto-fill, minmax(8.5rem, 1fr)); gap: 0.75rem; }
+    .card .row .btn:not(.copy) { display: none; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>Image Bridge</h1>
+  <span class="count" id="count"></span>
+  <span class="spacer"></span>
+  <label class="search">
+    <svg aria-hidden="true" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+    <input id="q" type="search" placeholder="Filter by name or id" autocomplete="off">
+  </label>
+  <button class="btn icon" id="refresh" title="Refresh" aria-label="Refresh list">
+    <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>
+  </button>
+</header>
+
+<main>
+  <p class="lede">Paste or drop an image, then hand its <code>img__…</code> id to your MCP client; it knows to fetch it.</p>
+
+  <div id="drop" tabindex="0" role="button" aria-label="Upload images: paste with Alt+V, drop files, or press Enter to choose">
+    <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m17 8-5-5-5 5"/><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/></svg>
+    <strong>Paste <kbd>Alt</kbd>+<kbd>V</kbd>, drop, or click to choose images</strong>
+    <span>PNG, JPEG, GIF, WebP · <kbd>Alt</kbd>+<kbd>C</kbd> copies the newest id</span>
+    <input id="file" type="file" accept="image/png,image/jpeg,image/gif,image/webp" multiple hidden>
+  </div>
+  <div id="status" role="status" aria-live="polite"></div>
+  <div id="grid"></div>
+</main>
+
+<button id="theme" aria-label="Toggle dark mode" title="Toggle theme">
+  <svg class="sun" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
+  <svg class="moon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
+</button>
+
+<dialog id="drawer" closedby="any" aria-labelledby="d-title">
+  <div class="drawer-head">
+    <h2 id="d-title">Image</h2>
+    <span class="pos" id="d-pos"></span>
+    <button class="btn icon" id="d-prev" aria-label="Previous image" title="Previous (←)">
+      <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+    </button>
+    <button class="btn icon" id="d-next" aria-label="Next image" title="Next (→)">
+      <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+    </button>
+    <button class="btn icon" id="d-close" aria-label="Close" title="Close (Esc)">
+      <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+    </button>
+  </div>
+  <div class="drawer-body">
+    <div class="stage"><img id="d-img" alt=""></div>
+    <div class="details" id="d-details">
+      <dl>
+        <dt>Id</dt><dd><code id="d-id"></code></dd>
+        <dt>File</dt><dd id="d-name"></dd>
+        <dt>Type</dt><dd id="d-type"></dd>
+        <dt>Size</dt><dd id="d-size"></dd>
+        <dt>Uploaded</dt><dd id="d-when"></dd>
+      </dl>
+      <div class="actions">
+        <button class="btn primary" id="d-copy">
+          <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+          Copy id
+        </button>
+        <a class="btn" id="d-open" target="_blank" rel="noopener">
+          <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6M10 14 21 3M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg>
+          Open
+        </a>
+        <a class="btn" id="d-download">
+          <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V3M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5"/></svg>
+          Download
+        </a>
+        <button class="btn danger del" id="d-del">
+          <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 11v6M14 11v6"/></svg>
+          Delete
+        </button>
+        <span class="confirm">Delete permanently?
+          <button class="btn danger" id="d-del-yes">Yes, delete</button>
+          <button class="btn" id="d-del-no">Keep</button>
+        </span>
+      </div>
+    </div>
+  </div>
+  <div class="drawer-foot"><span>← → to browse · Esc to close</span><span id="d-dims"></span></div>
+</dialog>
+
+<script>
+const $ = (s) => document.querySelector(s);
+const drop = $('#drop'), fileInput = $('#file'), grid = $('#grid'), statusEl = $('#status');
+const countEl = $('#count'), q = $('#q');
+const drawer = $('#drawer');
+
+let all = [];        // every image, newest first
+let shown = [];      // after the filter, newest first
+let current = -1;    // index into `shown` while the drawer is open
+let fresh = new Set();
+
+// ---------- helpers ----------
+const fmtSize = (n) => n < 1024 ? `${n} B` : n < 1048576 ? `${(n / 1024).toFixed(1)} KiB` : `${(n / 1048576).toFixed(2)} MiB`;
+const fmtWhen = (iso) => { const d = new Date(iso); return isNaN(d) ? iso : d.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' }); };
+const rawUrl = (id) => `/api/images/${id}`;
+
+function setStatus(html, isErr = false) {
+  statusEl.innerHTML = html;
+  statusEl.classList.toggle('err', isErr);
+}
+function esc(s) { return s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
+
+async function copyText(text) {
+  try { await navigator.clipboard.writeText(text); return true; }
+  catch {
+    const t = document.createElement('textarea');
+    t.value = text; t.style.position = 'fixed'; t.style.opacity = '0';
+    document.body.append(t); t.select();
+    try { return document.execCommand('copy'); } finally { t.remove(); }
+  }
+}
+async function copyId(id, btn) {
+  const ok = await copyText(id);
+  if (btn) {
+    const old = btn.innerHTML;
+    btn.innerHTML = ok ? 'Copied ✓' : 'Copy failed';
+    setTimeout(() => (btn.innerHTML = old), 1200);
+  }
+  return ok;
+}
+
+// ---------- gallery ----------
+function card(img, i) {
+  const el = document.createElement('article');
+  el.className = 'card' + (fresh.has(img.id) ? ' fresh' : '');
+  el.innerHTML = `
+    <button class="thumb" aria-label="Open ${esc(img.filename)}"><img src="${rawUrl(img.id)}" alt="" loading="lazy" decoding="async"></button>
+    <div class="meta">
+      <div class="name" title="${esc(img.filename)}">${esc(img.filename)}</div>
+      <div class="sub">${fmtSize(img.size)} · ${fmtWhen(img.uploadedAt)}</div>
+      <div class="row">
+        <button class="btn primary copy" title="${img.id}"><span class="mono">${img.id.slice(0, 13)}…</span></button>
+        <button class="btn icon open" aria-label="View details" title="View">
+          <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+        </button>
+      </div>
+    </div>`;
+  el.querySelector('.thumb').onclick = () => openDrawer(i);
+  el.querySelector('.open').onclick = () => openDrawer(i);
+  const copy = el.querySelector('.copy');
+  copy.onclick = () => copyId(img.id, copy);
+  return el;
+}
+
+function applyFilter() {
+  const term = q.value.trim().toLowerCase();
+  shown = term ? all.filter((i) => i.filename.toLowerCase().includes(term) || i.id.includes(term)) : all;
+  grid.replaceChildren();
+  if (!shown.length) {
+    const e = document.createElement('div');
+    e.className = 'empty';
+    e.textContent = all.length ? 'No images match that filter.' : 'Nothing here yet. Paste an image to get started.';
+    grid.append(e);
+  } else {
+    shown.forEach((img, i) => grid.append(card(img, i)));
+  }
+  countEl.textContent = all.length ? `${shown.length === all.length ? all.length : `${shown.length} of ${all.length}`} image${all.length === 1 ? '' : 's'}` : '';
+}
+
+async function refresh(freshIds = new Set()) {
+  fresh = freshIds;
+  let res;
+  try { res = await fetch('/api/images'); } catch { res = null; }
+  if (!res?.ok) {
+    const body = res ? await res.json().catch(() => ({})) : {};
+    return setStatus(`Could not load images${body.error ? `: ${esc(body.error)}` : ''}. Is Azurite running? <code>npm run azurite:up</code>`, true);
+  }
+  all = await res.json();
+  applyFilter();
+}
+
+// ---------- upload ----------
+async function upload(files) {
+  files = [...files].filter((f) => f.type.startsWith('image/') || /\.(png|jpe?g|gif|webp)$/i.test(f.name));
+  if (!files.length) return setStatus('No image found to upload', true);
+  setStatus(`Uploading ${files.length} image${files.length > 1 ? 's' : ''}…`);
+  const fd = new FormData();
+  for (const f of files) fd.append('file', f, f.name || `pasted-${Date.now()}.png`);
+  let res, body;
+  try {
+    res = await fetch('/api/images', { method: 'POST', body: fd });
+    body = await res.json().catch(() => ({}));
+  } catch (err) {
+    return setStatus(`Upload failed: ${esc(err.message)}`, true);
+  }
+  if (!res.ok) return setStatus(esc(body.error || `Upload failed (${res.status})`), true);
+  await refresh(new Set(body.map((i) => i.id)));
+  if (body.length === 1) {
+    const ok = await copyText(body[0].id);
+    setStatus(`Uploaded. ${ok ? 'Id copied: ' : 'Id: '}<code>${body[0].id}</code>`);
+  } else {
+    setStatus(`Uploaded ${body.length} images. Newest id: <code>${body[0].id}</code>`);
+  }
+}
+
+// Alt+V reads the clipboard via the async Clipboard API (the native `paste` event only fires for Ctrl/⌘+V).
+// Chromium browsers ask for clipboard permission the first time.
+async function pasteFromClipboard() {
+  if (!navigator.clipboard?.read) return setStatus('This browser cannot read the clipboard; drop or choose a file instead', true);
+  let items;
+  try {
+    items = await navigator.clipboard.read();
+  } catch (err) {
+    const denied = err.name === 'NotAllowedError';
+    return setStatus(denied ? 'Clipboard access denied. Allow it in the site permissions and retry.' : `Clipboard read failed: ${esc(err.message)}`, true);
+  }
+  const files = [];
+  for (const item of items) {
+    const type = item.types.find((t) => t.startsWith('image/'));
+    if (!type) continue;
+    const blob = await item.getType(type);
+    const ext = type.split('/')[1].replace('jpeg', 'jpg');
+    files.push(new File([blob], `pasted-${Date.now()}.${ext}`, { type }));
+  }
+  if (!files.length) return setStatus('No image on the clipboard', true);
+  await upload(files);
+}
+
+async function copyNewest() {
+  if (!all.length) return setStatus('No images to copy', true);
+  const ok = await copyText(all[0].id);
+  setStatus(`${ok ? 'Copied' : 'Could not copy'} <code>${all[0].id}</code>`, !ok);
+}
+
+// ---------- drawer ----------
+const d = {
+  title: $('#d-title'), pos: $('#d-pos'), img: $('#d-img'), id: $('#d-id'), name: $('#d-name'), type: $('#d-type'),
+  size: $('#d-size'), when: $('#d-when'), dims: $('#d-dims'), details: $('#d-details'),
+  copy: $('#d-copy'), open: $('#d-open'), download: $('#d-download'), prev: $('#d-prev'), next: $('#d-next'),
+};
+
+function show(i) {
+  const img = shown[i];
+  if (!img) return;
+  current = i;
+  d.title.textContent = img.filename;
+  d.pos.textContent = `${i + 1} / ${shown.length}`;
+  d.img.src = rawUrl(img.id);
+  d.img.alt = img.filename;
+  d.img.classList.remove('natural');
+  d.dims.textContent = '';
+  d.img.onload = () => {
+    d.dims.textContent = `${d.img.naturalWidth} × ${d.img.naturalHeight}`;
+    d.img.classList.toggle('natural', d.img.naturalWidth < 64 && d.img.naturalHeight < 64);
+  };
+  d.id.textContent = img.id;
+  d.name.textContent = img.filename;
+  d.type.textContent = img.mimeType;
+  d.size.textContent = fmtSize(img.size);
+  d.when.textContent = fmtWhen(img.uploadedAt);
+  d.open.href = rawUrl(img.id);
+  d.download.href = rawUrl(img.id);
+  d.download.download = img.filename;
+  d.prev.disabled = i === 0;
+  d.next.disabled = i === shown.length - 1;
+  delete d.details.dataset.confirm;
+}
+
+function openDrawer(i) {
+  show(i);
+  if (!drawer.open) drawer.showModal();
+  d.copy.focus({ preventScroll: true });
+}
+
+// Exit animation needs `overlay` + discrete `display` transitions (Chromium). Elsewhere, flag `data-closing`,
+// let the CSS transition run, then close. Entry animates everywhere via @starting-style.
+let supportsDisplayTransition;
+function canTransitionDisplay() {
+  if (supportsDisplayTransition !== undefined) return supportsDisplayTransition;
+  if (!CSS.supports?.('transition-behavior', 'allow-discrete')) return (supportsDisplayTransition = false);
+  const probe = document.createElement('div');
+  probe.style.cssText = 'transition: display 1s allow-discrete !important; display: block;';
+  document.body.appendChild(probe);
+  getComputedStyle(probe).display;
+  probe.style.display = 'none';
+  supportsDisplayTransition = getComputedStyle(probe).display === 'block';
+  probe.remove();
+  return supportsDisplayTransition;
+}
+async function closeDrawer() {
+  if (!drawer.open) return;
+  if (!(CSS.supports?.('overlay', 'auto') && canTransitionDisplay())) {
+    drawer.setAttribute('data-closing', '');
+    const anims = drawer.getAnimations({ subtree: true });
+    if (anims.length) await Promise.race([Promise.allSettled(anims.map((a) => a.finished)), new Promise((r) => setTimeout(r, 600))]);
+    if (!drawer.hasAttribute('data-closing')) return;
+    drawer.removeAttribute('data-closing');
+  }
+  drawer.close();
+}
+
+drawer.addEventListener('cancel', (e) => { e.preventDefault(); closeDrawer(); }); // Esc + closedby light-dismiss, animated
+if (!('closedBy' in HTMLDialogElement.prototype)) {
+  // Light-dismiss fallback: a click whose target is the dialog itself and lands outside its box is on the backdrop.
+  drawer.addEventListener('click', (e) => {
+    if (e.target !== drawer) return;
+    const r = drawer.getBoundingClientRect();
+    const inside = r.top <= e.clientY && e.clientY <= r.bottom && r.left <= e.clientX && e.clientX <= r.right;
+    if (!inside) closeDrawer();
+  });
+}
+$('#d-close').onclick = closeDrawer;
+d.prev.onclick = () => show(current - 1);
+d.next.onclick = () => show(current + 1);
+d.copy.onclick = () => copyId(shown[current].id, d.copy);
+$('#d-del').onclick = () => { d.details.dataset.confirm = ''; $('#d-del-yes').focus(); };
+$('#d-del-no').onclick = () => { delete d.details.dataset.confirm; $('#d-del').focus(); };
+$('#d-del-yes').onclick = async () => {
+  const img = shown[current];
+  const res = await fetch(rawUrl(img.id), { method: 'DELETE' });
+  if (!res.ok && res.status !== 404) return setStatus('Delete failed', true);
+  const next = Math.min(current, shown.length - 2);
+  await refresh();
+  setStatus(`Deleted <code>${img.id}</code>`);
+  if (next < 0) closeDrawer(); else show(next);
+};
+drawer.addEventListener('keydown', (e) => {
+  if (e.altKey || e.ctrlKey || e.metaKey) return;
+  if (e.key === 'ArrowLeft' && current > 0) { e.preventDefault(); show(current - 1); }
+  else if (e.key === 'ArrowRight' && current < shown.length - 1) { e.preventDefault(); show(current + 1); }
+});
+
+// ---------- theme (same contract as trpc-portfolio: .dark on <html>, localStorage "theme") ----------
+const mq = matchMedia('(prefers-color-scheme: dark)');
+function setDark(dark, persist) {
+  document.documentElement.classList.toggle('dark', dark);
+  if (persist) { try { localStorage.setItem('theme', dark ? 'dark' : 'light'); } catch {} }
+}
+$('#theme').onclick = () => setDark(!document.documentElement.classList.contains('dark'), true);
+mq.addEventListener('change', (e) => { try { if (!localStorage.getItem('theme')) setDark(e.matches, false); } catch {} });
+
+// ---------- wiring ----------
+drop.onclick = () => fileInput.click();
+drop.onkeydown = (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fileInput.click(); } };
+fileInput.onchange = () => { upload(fileInput.files); fileInput.value = ''; };
+drop.ondragover = (e) => { e.preventDefault(); drop.classList.add('over'); };
+drop.ondragleave = () => drop.classList.remove('over');
+drop.ondrop = (e) => { e.preventDefault(); drop.classList.remove('over'); upload(e.dataTransfer.files); };
+document.addEventListener('dragover', (e) => e.preventDefault());
+document.addEventListener('drop', (e) => { e.preventDefault(); if (!drop.contains(e.target)) upload(e.dataTransfer.files); });
+q.oninput = applyFilter;
+$('#refresh').onclick = () => refresh();
+document.addEventListener('keydown', (e) => {
+  // e.code, not e.key: on macOS Option+V yields '√' as the key.
+  if (!e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return;
+  if (e.code === 'KeyV') { e.preventDefault(); pasteFromClipboard(); }
+  else if (e.code === 'KeyC') { e.preventDefault(); copyNewest(); }
+});
+
+refresh();
+</script>
+</body>
+</html>

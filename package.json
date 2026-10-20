@@ -1,0 +1,41 @@
+{
+  "name": "cuxsor-help-tui",
+  "version": "0.1.0",
+  "private": true,
+  "description": "HTTP MCP server + browser UI for handing images to TUI clients that can't paste them",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "check-tools": "node scripts/check-tools.mjs",
+    "azurite:up": "node scripts/azurite.mjs up",
+    "azurite:down": "node scripts/azurite.mjs down",
+    "azurite:status": "node scripts/azurite.mjs status",
+    "azurite:nuke": "node scripts/azurite.mjs nuke",
+    "setup:clients": "node scripts/setup-clients.mjs",
+    "predev": "node scripts/check-tools.mjs",
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc -p tsconfig.build.json",
+    "prestart": "node scripts/check-tools.mjs",
+    "start": "node dist/index.js",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "health": "node scripts/healthcheck.mjs"
+  },
+  "dependencies": {
+    "@azure/storage-blob": "^12.34.0",
+    "@modelcontextprotocol/sdk": "^1.32.1",
+    "express": "^5.3.0",
+    "multer": "^2.4.0",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.6",
+    "@types/multer": "^2.3.0",
+    "@types/node": "^26.6.5",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.5"
+  }
+}
